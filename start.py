@@ -1,4 +1,4 @@
-import hashlib
+
 import fnmatch
 import os
 import openpyxl
