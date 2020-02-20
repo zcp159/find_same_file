@@ -5,11 +5,12 @@ import openpyxl
 import threading
 import queue
 import pyautogui
+import time
 
 dic = {}  # 放置{"MD5":["相同MD5文件路径1","相同MD5文件路径2","..."]}
 q = queue.Queue()  # 安全队列用于放置所有文件路径
 threads = []  # 放置所有线程
-
+is_jisuan_size ="y" # 放置是否计算文件大小
 
 # 确定文件是否符合规则
 def is_file_math(file, guizes):
@@ -65,6 +66,7 @@ def build_pymulu_filename(file_name):
 # 传递过来文件绝对路径，计算MD5后添加进字典{"MD5":["相同MD5文件路径1","相同MD5文件路径2","..."]}
 def MD5jisuan_dic():
     global dic
+    global is_jisuan_MD5
     while True:
         name = q.get()
         if name is None:
@@ -74,8 +76,8 @@ def MD5jisuan_dic():
         current_md5 = get_file_md5(name)
         if not name == dic.setdefault(current_md5, []):
             dic[current_md5].append(name)
-        # 如果列表长度为1，则是第一个MD5文件，计算文件大小，时间多了6倍
-        if len(dic[current_md5]) == 1:
+        # # 如果列表长度为1，则是第一个MD5文件，计算文件大小，时间多了6倍
+        if len(dic[current_md5]) == 1 and is_jisuan_size == "y":
             dic[current_md5].insert(0, int(os.path.getsize(name) / 1024 / 1024))
         q.task_done()
 
@@ -85,6 +87,13 @@ def main():
     m = pyautogui.prompt('请输入目录，如输入: D:\Program Files\Python ')
     if str(m) == "None":
         exit()
+    # 用户确认是否计算文件大小
+    is_jisuan_size = pyautogui.prompt('是否计算文件大小，如计算时间多6倍，输入小写y/n ')
+    if is_jisuan_size != "y" and is_jisuan_size != "n":
+        exit()
+
+    # 计时开始
+    time_start = time.perf_counter()
 
     # 新建EXCEL
     wb = openpyxl.Workbook()
@@ -97,16 +106,16 @@ def main():
     ws['F1'] = '文件4'
 
     # 得到目录下所有满足条件的文件绝对路径
-    s = is_special_file(m)
+    lujing_all = is_special_file(m)
 
-    # 启动线程，计算MD5
+    # 启动10个线程，计算MD5
     for i in range(10):
         t = threading.Thread(target=MD5jisuan_dic)
         t.start()
         threads.append(t)
 
     # 把所有文件路径放入队列
-    for item in s:
+    for item in lujing_all:
         q.put(item)
 
     # 等待队列消费完毕
@@ -120,7 +129,7 @@ def main():
         t.join()
 
     # 遍历文件MD5字典
-    j = 2   # 行指针
+    j = 2  # 行指针
     for i in dic:
         # 输出key，key对应字典键值
         print(i, dic[i])
@@ -135,6 +144,7 @@ def main():
     # 保存到py文件目录下
     wb.save(build_pymulu_filename("jisuanMD5.xlsx"))
     wb.close()
+    print("结束 {}".format(time.perf_counter() - time_start))
 
 
 if __name__ == '__main__':
